@@ -4,6 +4,9 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime, date
 import json
 import pandas as pd
+import io
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 
 # ── Página ───────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Zoolitos", page_icon="🐾", layout="wide")
@@ -100,6 +103,15 @@ def get_gc():
     credentials = Credentials.from_service_account_info(creds, scopes=scopes)
     return gspread.authorize(credentials)
 
+
+@st.cache_resource
+def get_drive_service():
+    """Servicio para subir fotos a Google Drive"""
+    creds = st.secrets["gcp_service_account"]
+    scopes = ["https://www.googleapis.com/auth/drive"]
+    credentials = Credentials.from_service_account_info(creds, scopes=scopes)
+    return build('drive', 'v3', credentials=credentials)
+
 def get_wb():
     return get_gc().open_by_key(st.secrets["SHEET_ID"])
 
@@ -141,15 +153,14 @@ def load_clientes():
 
 @st.cache_data(ttl=20)
 def load_productos():
-    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock"])
+    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock","imagen_url"])
     rows = ws.get_all_values()
     
     if len(rows) <= 1:
-        return pd.DataFrame(columns=["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock"])
+        return pd.DataFrame(columns=["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock","imagen_url"])
     
     df = pd.DataFrame(rows[1:], columns=rows[0])
     
-    # Convertir numéricas de forma segura
     for col in ["precio_costo", "stock"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
@@ -470,44 +481,62 @@ elif page == "Productos":
                 stock        = st.number_input("Stock", min_value=0, 
                                              value=int(edit.get("stock", 0)) if edit else 0, step=1)
 
+            # ← NUEVO: Subida de foto
+            st.markdown("**📸 Foto del producto**")
+            imagen = st.file_uploader("Seleccionar o tomar foto", type=["jpg", "jpeg", "png"], key="foto_prod")
+
             submitted = st.form_submit_button("Guardar producto", type="primary")
 
             if submitted:
                 if not nombre.strip():
                     st.error("El nombre es obligatorio.")
                 else:
-                    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock"])
+                    imagen_url = edit.get("imagen_url", "") if edit else ""
+
+                    # Subir foto a Drive si se seleccionó una
+                    if imagen is not None:
+                        try:
+                            drive_service = get_drive_service()
+                            file_name = f"{nombre.strip().replace(' ', '_')}_{new_id()}.jpg"
+                            
+                            # Reemplaza esto con el ID de tu carpeta en Drive
+                            folder_id = "1ykJICR5NM_5ntOUli0mdIyZJnyhMjUV8"   # ← CAMBIAR ESTO
+
+                            file_metadata = {
+                                'name': file_name,
+                                'parents': [folder_id]
+                            }
+
+                            media = MediaIoBaseUpload(io.BytesIO(imagen.getvalue()), mimetype=imagen.type)
+                            
+                            file = drive_service.files().create(
+                                body=file_metadata,
+                                media_body=media,
+                                fields='id'
+                            ).execute()
+
+                            imagen_url = f"https://drive.google.com/uc?id={file.get('id')}"
+                            st.success("✅ Foto subida correctamente")
+                        except Exception as e:
+                            st.error(f"Error al subir foto: {e}")
+
+                    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock","imagen_url"])
                     
                     if edit:  # Actualizar
                         rows = ws.get_all_values()
                         for i, row in enumerate(rows[1:], start=2):
                             if row[0] == edit["id"]:
-                                ws.update(f"A{i}:I{i}", [[ 
-                                    edit["id"], 
-                                    nombre.strip(), 
-                                    descripcion, 
-                                    categoria, 
-                                    talla, 
-                                    color, 
-                                    precio_costo, 
-                                    edit.get("fecha_inicio_venta", date.today().strftime("%d/%m/%Y")), 
-                                    stock 
+                                ws.update(f"A{i}:J{i}", [[ 
+                                    edit["id"], nombre.strip(), descripcion, categoria, talla, color, 
+                                    precio_costo, edit.get("fecha_inicio_venta", ""), stock, imagen_url
                                 ]])
                                 break
                         st.success(f"✓ Producto '{nombre}' actualizado.")
                         st.session_state["edit_producto"] = None
-                        
                     else:  # Crear nuevo
                         ws.append_row([
-                            new_id(), 
-                            nombre.strip(), 
-                            descripcion, 
-                            categoria, 
-                            talla, 
-                            color, 
-                            precio_costo, 
-                            date.today().strftime("%d/%m/%Y"), 
-                            stock
+                            new_id(), nombre.strip(), descripcion, categoria, talla, color,
+                            precio_costo, date.today().strftime("%d/%m/%Y"), stock, imagen_url
                         ])
                         st.success(f"✓ Producto '{nombre}' creado.")
 
