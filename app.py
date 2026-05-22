@@ -828,7 +828,7 @@ elif page == "Cobros":
                     for _, vp in v_pend.sort_values("fecha", ascending=False).iterrows():
                         st.markdown(f"""
                         <div style="font-size:13px;padding:6px 10px;background:#2a1a1a;border-radius:8px;margin-bottom:4px;display:flex;justify-content:space-between">
-                          <span style="color:#888">{vp['fecha']} — {vp['producto']} x{int(float(vp['cantidad']))}</span>
+                          <span style="color:#888">{vp['fecha']} — {vp['producto_nombre']} x{int(float(vp['cantidad']))}</span>
                           <span style="color:#de5d5d;font-weight:600">{fmt(vp['total'])}</span>
                         </div>
                         """, unsafe_allow_html=True)
