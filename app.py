@@ -310,7 +310,7 @@ elif page == "Clientes":
                 telefono      = st.text_input("Teléfono", value=edit.get("telefono", "") if edit else "")
                 email         = st.text_input("Email", value=edit.get("email", "") if edit else "")
                 fecha_nac     = st.date_input("Fecha de nacimiento", 
-                                        value=datetime.strptime(edit.get("fecha_nacimiento", "01/01/2000"), "%d/%m/%Y").date() 
+                                        value=datetime.strptime(edit.get("fecha_nacimiento", "01/01/1900"), "%d/%m/%Y").date() 
                                         if edit and edit.get("fecha_nacimiento") else date(2000, 1, 1))
         
             with c2:
