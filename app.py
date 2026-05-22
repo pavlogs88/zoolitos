@@ -299,55 +299,79 @@ elif page == "Clientes":
     ventas_df   = load_ventas()
     cobros_df   = load_cobros()
 
-    # ── Formulario alta / edición ─────────────────────────────────────────────
-    edit = st.session_state["edit_cliente"]
-    with st.expander("➕ Nuevo cliente" if not edit else f"✏️ Editando: {edit['nombre']}", expanded=edit is not None):
-        with st.form("form_cliente"):
-            c1, c2 = st.columns(2)
-            with c1:
-              nombre   = st.text_input("Nombre *", value=edit["nombre"] if edit else "")
-              telefono = st.text_input("Teléfono", value=edit["telefono"] if edit else "")
-              email    = st.text_input("Email", value=edit["email"] if edit else "")
-              fecha_nac = st.date_input("Fecha de nacimiento", 
-                                  value=datetime.strptime(edit["fecha_nacimiento"], "%d/%m/%Y").date() 
-                                  if edit and edit.get("fecha_nacimiento") else date(2000,1,1))
-    
-            with c2:
-              direccion = st.text_input("Dirección", value=edit["direccion"] if edit else "")
-              estado    = st.selectbox("Estado", ["Activo","Inactivo"], 
-                                index=0 if not edit else (["Activo","Inactivo"].index(edit["estado"]) if edit["estado"] in ["Activo","Inactivo"] else 0))
-              saldo_ini = st.number_input("Saldo inicial ($)", min_value=0.0, 
-                                   value=float(edit["saldo_inicial"]) if edit else 0.0, step=100.0, format="%.2f")
+     # ── Formulario alta / edición ─────────────────────────────────────────────
+edit = st.session_state["edit_cliente"]
 
-            submitted = st.form_submit_button("Guardar cliente", type="primary")
-            if submitted:
-                if not nombre.strip():
-                    st.error("El nombre es obligatorio.")
-                else:
-                    ws = get_ws("Clientes", ["id","nombre","telefono","email","direccion","estado","fecha_alta","saldo_inicial"])
-                    if edit:
-                        # Actualizar fila existente
-                        rows = ws.get_all_values()
-                        for i, row in enumerate(rows[1:], start=2):
-                            if row[0] == edit["id"]:
-                                ws.update(f"A{i}:H{i}", [[edit["id"], nombre.strip(), telefono, email, direccion, estado, edit["fecha_alta"], saldo_ini]])
-                                ws.update(f"A{i}:I{i}", [[edit["id"], nombre.strip(), direccion, email, telefono, fecha_nac.strftime("%d/%m/%Y"), estado, edit["fecha_alta"], saldo_ini]])
-                                break
-                        st.success(f"✓ Cliente '{nombre}' actualizado.")
-                        st.session_state["edit_cliente"] = None
-                    else:
-                        ws.append_row([new_id(), nombre.strip(), telefono, email, direccion, estado, date.today().strftime("%d/%m/%Y"), saldo_ini])
-                        ws.append_row([new_id(), nombre.strip(), direccion, email, telefono, fecha_nac.strftime("%d/%m/%Y"), estado, date.today().strftime("%d/%m/%Y"), saldo_ini])
-                        st.success(f"✓ Cliente '{nombre}' creado.")
-                    clear_cache()
-                    st.rerun()
+with st.expander("➕ Nuevo cliente" if not edit else f"✏️ Editando: {edit['nombre']}", expanded=edit is not None):
+    with st.form("form_cliente", clear_on_submit=True):   # ← Muy importante
+        c1, c2 = st.columns(2)
+        with c1:
+            nombre        = st.text_input("Nombre *", value=edit.get("nombre", "") if edit else "")
+            telefono      = st.text_input("Teléfono", value=edit.get("telefono", "") if edit else "")
+            email         = st.text_input("Email", value=edit.get("email", "") if edit else "")
+            fecha_nac     = st.date_input("Fecha de nacimiento", 
+                                        value=datetime.strptime(edit.get("fecha_nacimiento", "01/01/2000"), "%d/%m/%Y").date() 
+                                        if edit and edit.get("fecha_nacimiento") else date(2000, 1, 1))
+        
+        with c2:
+            direccion     = st.text_input("Dirección", value=edit.get("direccion", "") if edit else "")
+            estado        = st.selectbox("Estado", ["Activo","Inactivo"], 
+                                        index=0 if not edit else (["Activo","Inactivo"].index(edit.get("estado", "Activo"))))
+            saldo_ini     = st.number_input("Saldo inicial ($)", min_value=0.0, 
+                                          value=float(edit.get("saldo_inicial", 0)) if edit else 0.0, 
+                                          step=100.0, format="%.2f")
 
-        if edit:
-            if st.button("Cancelar edición"):
-                st.session_state["edit_cliente"] = None
+        submitted = st.form_submit_button("Guardar cliente", type="primary")
+
+        if submitted:
+            if not nombre.strip():
+                st.error("El nombre es obligatorio.")
+            else:
+                ws = get_ws("Clientes", ["id","nombre","direccion","email","telefono","fecha_nacimiento","estado","fecha_alta","saldo_inicial"])
+                
+                if edit:  # Actualizar
+                    rows = ws.get_all_values()
+                    for i, row in enumerate(rows[1:], start=2):
+                        if row[0] == edit["id"]:
+                            ws.update(f"A{i}:I{i}", [[ 
+                                edit["id"], 
+                                nombre.strip(), 
+                                direccion, 
+                                email, 
+                                telefono, 
+                                fecha_nac.strftime("%d/%m/%Y"), 
+                                estado, 
+                                edit.get("fecha_alta", date.today().strftime("%d/%m/%Y")), 
+                                saldo_ini 
+                            ]])
+                            break
+                    st.success(f"✓ Cliente '{nombre}' actualizado.")
+                    st.session_state["edit_cliente"] = None
+                    
+                else:  # Crear nuevo
+                    ws.append_row([
+                        new_id(), 
+                        nombre.strip(), 
+                        direccion, 
+                        email, 
+                        telefono, 
+                        fecha_nac.strftime("%d/%m/%Y"), 
+                        estado, 
+                        date.today().strftime("%d/%m/%Y"), 
+                        saldo_ini
+                    ])
+                    st.success(f"✓ Cliente '{nombre}' creado.")
+
+                clear_cache()
                 st.rerun()
 
-    st.markdown("---")
+    # Botón cancelar (fuera del form)
+    if edit:
+        if st.button("Cancelar edición"):
+            st.session_state["edit_cliente"] = None
+            st.rerun()
+
+st.markdown("---")
 
     # ── Búsqueda ──────────────────────────────────────────────────────────────
     buscar = st.text_input("🔍 Buscar cliente", placeholder="Nombre, teléfono...")
