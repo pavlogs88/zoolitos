@@ -141,12 +141,19 @@ def load_clientes():
 
 @st.cache_data(ttl=20)
 def load_productos():
-    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","stock"])
+    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock"])
     rows = ws.get_all_values()
-    if len(rows) <= 1: return pd.DataFrame(columns=["id","nombre","descripcion","categoria","talla","color","precio_costo","stock"])
+    
+    if len(rows) <= 1:
+        return pd.DataFrame(columns=["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock"])
+    
     df = pd.DataFrame(rows[1:], columns=rows[0])
-    df["precio_costo"] = pd.to_numeric(df["precio_costo"], errors="coerce").fillna(0)
-    df["stock"] = pd.to_numeric(df["stock"], errors="coerce").fillna(0).astype(int)
+    
+    # Convertir numéricas de forma segura
+    for col in ["precio_costo", "stock"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    
     return df
 
 @st.cache_data(ttl=20)
@@ -438,36 +445,63 @@ elif page == "Productos":
 
     # ── Formulario ────────────────────────────────────────────────────────────
     with st.expander("➕ Nuevo producto" if not edit else f"✏️ Editando: {edit['nombre']}", expanded=edit is not None):
-        with st.form("form_producto"):
+        with st.form("form_producto", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
             with c1:
-                nombre      = st.text_input("Nombre *", value=edit["nombre"] if edit else "")
-                descripcion = st.text_input("Descripción", value=edit["descripcion"] if edit else "")
-                categoria   = st.text_input("Categoría", value=edit["categoria"] if edit else "")
+                nombre      = st.text_input("Nombre *", value=edit.get("nombre", "") if edit else "")
+                descripcion = st.text_input("Descripción", value=edit.get("descripcion", "") if edit else "")
+                categoria   = st.text_input("Categoría", value=edit.get("categoria", "") if edit else "")
             with c2:
-                talla       = st.text_input("Talla", value=edit["talla"] if edit else "")
-                color       = st.text_input("Color", value=edit["color"] if edit else "")
+                talla       = st.text_input("Talla", value=edit.get("talla", "") if edit else "")
+                color       = st.text_input("Color", value=edit.get("color", "") if edit else "")
             with c3:
-                precio_costo = st.number_input("Precio costo ($)", min_value=0.0, value=float(edit["precio_costo"]) if edit else 0.0, step=100.0, format="%.2f")
-                stock        = st.number_input("Stock", min_value=0, value=int(edit["stock"]) if edit else 0, step=1)
+                precio_costo = st.number_input("Precio costo ($)", min_value=0.0, 
+                                             value=float(edit.get("precio_costo", 0)) if edit else 0.0, 
+                                             step=100.0, format="%.2f")
+                stock        = st.number_input("Stock", min_value=0, 
+                                             value=int(edit.get("stock", 0)) if edit else 0, step=1)
 
             submitted = st.form_submit_button("Guardar producto", type="primary")
+
             if submitted:
                 if not nombre.strip():
                     st.error("El nombre es obligatorio.")
                 else:
-                    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","stock"])
-                    if edit:
+                    ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock"])
+                    
+                    if edit:  # Actualizar
                         rows = ws.get_all_values()
                         for i, row in enumerate(rows[1:], start=2):
                             if row[0] == edit["id"]:
-                                ws.update(f"A{i}:H{i}", [[edit["id"], nombre.strip(), descripcion, categoria, talla, color, precio_costo, stock]])
+                                ws.update(f"A{i}:I{i}", [[ 
+                                    edit["id"], 
+                                    nombre.strip(), 
+                                    descripcion, 
+                                    categoria, 
+                                    talla, 
+                                    color, 
+                                    precio_costo, 
+                                    edit.get("fecha_inicio_venta", date.today().strftime("%d/%m/%Y")), 
+                                    stock 
+                                ]])
                                 break
                         st.success(f"✓ Producto '{nombre}' actualizado.")
                         st.session_state["edit_producto"] = None
-                    else:
-                        ws.append_row([new_id(), nombre.strip(), descripcion, categoria, talla, color, precio_costo, stock])
+                        
+                    else:  # Crear nuevo
+                        ws.append_row([
+                            new_id(), 
+                            nombre.strip(), 
+                            descripcion, 
+                            categoria, 
+                            talla, 
+                            color, 
+                            precio_costo, 
+                            date.today().strftime("%d/%m/%Y"), 
+                            stock
+                        ])
                         st.success(f"✓ Producto '{nombre}' creado.")
+
                     clear_cache()
                     st.rerun()
 
@@ -477,7 +511,7 @@ elif page == "Productos":
                 st.rerun()
 
     st.markdown("---")
-
+    
     # ── Filtros ───────────────────────────────────────────────────────────────
     col_b, col_c, col_s = st.columns(3)
     with col_b: buscar = st.text_input("🔍 Buscar", placeholder="Nombre, categoría...")
