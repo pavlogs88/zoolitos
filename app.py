@@ -88,11 +88,17 @@ st.markdown("""
 # ── Google Sheets ─────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_gc():
-    creds_data = json.loads(st.secrets["GOOGLE_CREDS"])
-    scopes = ["https://www.googleapis.com/auth/spreadsheets",
-              "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(creds_data, scopes=scopes)
-    return gspread.authorize(creds)
+    """Conecta con Google Sheets usando Service Account"""
+    creds = st.secrets["gcp_service_account"]
+    
+    scopes = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    
+    credentials = Credentials.from_service_account_info(creds, scopes=scopes)
+    return gspread.authorize(credentials)
 
 def get_wb():
     return get_gc().open_by_key(st.secrets["SHEET_ID"])
