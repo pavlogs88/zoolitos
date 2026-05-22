@@ -116,12 +116,28 @@ def get_ws(name, headers):
 # ── Cache de datos (TTL 20s) ──────────────────────────────────────────────────
 @st.cache_data(ttl=20)
 def load_clientes():
-    ws = get_ws("Clientes", ["id","nombre","telefono","email","direccion","estado","fecha_alta","saldo_inicial"])
+    ws = get_ws("Clientes", ["id","nombre","direccion","email","telefono","fecha_nacimiento","estado","fecha_alta","saldo_inicial"])
     rows = ws.get_all_values()
-    if len(rows) <= 1: return pd.DataFrame(columns=["id","nombre","telefono","email","direccion","estado","fecha_alta","saldo_inicial"])
+    
+    if len(rows) <= 1:
+        return pd.DataFrame(columns=["id","nombre","direccion","email","telefono","fecha_nacimiento","estado","fecha_alta","saldo_inicial"])
+    
     df = pd.DataFrame(rows[1:], columns=rows[0])
-    df["saldo_inicial"] = pd.to_numeric(df["saldo_inicial"], errors="coerce").fillna(0)
-    return df
+    
+    # Convertir columnas numéricas de forma segura
+    for col in ["saldo_inicial"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+        else:
+            df[col] = 0
+    
+    # Asegurar que existan todas las columnas esperadas
+    expected_cols = ["id","nombre","direccion","email","telefono","fecha_nacimiento","estado","fecha_alta","saldo_inicial"]
+    for col in expected_cols:
+        if col not in df.columns:
+            df[col] = "" if col == "fecha_nacimiento" else 0 if col == "saldo_inicial" else ""
+    
+    return df[expected_cols]  # Ordenar columnas
 
 @st.cache_data(ttl=20)
 def load_productos():
@@ -289,13 +305,19 @@ elif page == "Clientes":
         with st.form("form_cliente"):
             c1, c2 = st.columns(2)
             with c1:
-                nombre   = st.text_input("Nombre *", value=edit["nombre"] if edit else "")
-                telefono = st.text_input("Teléfono", value=edit["telefono"] if edit else "")
-                email    = st.text_input("Email", value=edit["email"] if edit else "")
+              nombre   = st.text_input("Nombre *", value=edit["nombre"] if edit else "")
+              telefono = st.text_input("Teléfono", value=edit["telefono"] if edit else "")
+              email    = st.text_input("Email", value=edit["email"] if edit else "")
+              fecha_nac = st.date_input("Fecha de nacimiento", 
+                                  value=datetime.strptime(edit["fecha_nacimiento"], "%d/%m/%Y").date() 
+                                  if edit and edit.get("fecha_nacimiento") else date(2000,1,1))
+    
             with c2:
-                direccion = st.text_input("Dirección", value=edit["direccion"] if edit else "")
-                estado    = st.selectbox("Estado", ["Activo","Inactivo"], index=0 if not edit else (["Activo","Inactivo"].index(edit["estado"]) if edit["estado"] in ["Activo","Inactivo"] else 0))
-                saldo_ini = st.number_input("Saldo inicial (deuda de arranque $)", min_value=0.0, value=float(edit["saldo_inicial"]) if edit else 0.0, step=100.0, format="%.2f")
+              direccion = st.text_input("Dirección", value=edit["direccion"] if edit else "")
+              estado    = st.selectbox("Estado", ["Activo","Inactivo"], 
+                                index=0 if not edit else (["Activo","Inactivo"].index(edit["estado"]) if edit["estado"] in ["Activo","Inactivo"] else 0))
+              saldo_ini = st.number_input("Saldo inicial ($)", min_value=0.0, 
+                                   value=float(edit["saldo_inicial"]) if edit else 0.0, step=100.0, format="%.2f")
 
             submitted = st.form_submit_button("Guardar cliente", type="primary")
             if submitted:
@@ -309,11 +331,13 @@ elif page == "Clientes":
                         for i, row in enumerate(rows[1:], start=2):
                             if row[0] == edit["id"]:
                                 ws.update(f"A{i}:H{i}", [[edit["id"], nombre.strip(), telefono, email, direccion, estado, edit["fecha_alta"], saldo_ini]])
+                                ws.update(f"A{i}:I{i}", [[edit["id"], nombre.strip(), direccion, email, telefono, fecha_nac.strftime("%d/%m/%Y"), estado, edit["fecha_alta"], saldo_ini]])
                                 break
                         st.success(f"✓ Cliente '{nombre}' actualizado.")
                         st.session_state["edit_cliente"] = None
                     else:
                         ws.append_row([new_id(), nombre.strip(), telefono, email, direccion, estado, date.today().strftime("%d/%m/%Y"), saldo_ini])
+                        ws.append_row([new_id(), nombre.strip(), direccion, email, telefono, fecha_nac.strftime("%d/%m/%Y"), estado, date.today().strftime("%d/%m/%Y"), saldo_ini])
                         st.success(f"✓ Cliente '{nombre}' creado.")
                     clear_cache()
                     st.rerun()
