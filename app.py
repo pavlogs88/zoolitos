@@ -270,7 +270,9 @@ if page == "Dashboard":
     with col_izq:
         st.markdown("#### 🏆 Top 5 productos más vendidos")
         if len(ventas_df) > 0:
-            top_prod = ventas_df.groupby("producto")["cantidad"].sum().sort_values(ascending=False).head(5).reset_index()
+            # ← CORREGIDO: ahora usa "producto_nombre"
+            top_prod = ventas_df.groupby("producto_nombre")["cantidad"].sum()\
+                              .sort_values(ascending=False).head(5).reset_index()
             top_prod.columns = ["Producto", "Unidades"]
             st.dataframe(top_prod, use_container_width=True, hide_index=True)
         else:
@@ -303,7 +305,6 @@ if page == "Dashboard":
             st.success("Todos los productos tienen stock suficiente ✓")
     else:
         st.caption("Sin productos cargados.")
-
 # ══════════════════════════════════════════════════════════════════════════════
 # CLIENTES
 # ══════════════════════════════════════════════════════════════════════════════
