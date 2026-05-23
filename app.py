@@ -617,12 +617,18 @@ elif page == "Productos":
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # Mostrar imagen
-                    if pr.get('imagen_url') and str(pr['imagen_url']).strip():
-                        try:
-                            st.image(pr['imagen_url'], width=280)
-                        except:
-                            st.caption("📷 No se pudo cargar la imagen")
+            # Mostrar imagen (mejorado)
+                if pr.get('imagen_url') and str(pr['imagen_url']).strip() != "":
+                    url = str(pr['imagen_url']).strip()
+                    try:
+                        st.image(url, width=280)
+                        st.caption("📷 Foto del producto")
+                    except Exception:
+                        st.warning("⚠️ Error al cargar imagen")
+                        if url.startswith("https://drive.google.com"):
+                            st.caption("🔗 [Ver foto en Drive](" + url + ")")
+                else:
+                    st.caption("📷 Sin foto cargada")
 
                     st.markdown(f"""
                     <div style="margin-top:8px">{stock_tag}</div>
