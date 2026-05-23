@@ -635,7 +635,7 @@ elif page == "Productos":
                             url = f"https://drive.google.com/uc?id={file_id}"
                         except:
                             pass
-                    
+                    st.caption(f"Link usado: {url}")
                     try:
                         st.image(url, width=300)
                         st.caption("📷 Foto del producto")
