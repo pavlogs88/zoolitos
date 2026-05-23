@@ -483,7 +483,13 @@ elif page == "Productos":
 
             # ← NUEVO: Subida de foto
             st.markdown("**📸 Foto del producto**")
-            imagen = st.file_uploader("Seleccionar o tomar foto", type=["jpg", "jpeg", "png"], key="foto_prod")
+            imagen = st.file_uploader("Seleccionar foto (opcional)", type=["jpg", "jpeg", "png"], key="foto_prod")
+            
+            # Link manual (por si querés ponerlo a mano)
+            imagen_url_manual = st.text_input("O pega aquí el link de la imagen (Google Drive)", 
+                                            value=edit.get("imagen_url", "") if edit else "")
+
+          
 
             submitted = st.form_submit_button("Guardar producto", type="primary")
 
@@ -491,20 +497,20 @@ elif page == "Productos":
                 if not nombre.strip():
                     st.error("El nombre es obligatorio.")
                 else:
-                    imagen_url = edit.get("imagen_url", "") if edit else ""
-
+                    #imagen_url = edit.get("imagen_url", "") if edit else ""
+                    
                     # Subir foto a Drive si se seleccionó una
-                    if imagen is not None:
+                    imagen_url = imagen_url_manual  # por defecto usa el link manual
+
+                    # Solo intenta subir si hay foto y no hay link manual
+                    if imagen is not None and not imagen_url_manual.strip():
                         try:
                             drive_service = get_drive_service()
                             file_name = f"{nombre.strip().replace(' ', '_')}_{new_id()}.jpg"
                             
-                            # Reemplaza esto con el ID de tu carpeta en Drive
-                            folder_id = "1ykJICR5NM_5ntOUli0mdIyZJnyhMjUV8"   # ← CAMBIAR ESTO
-
                             file_metadata = {
                                 'name': file_name,
-                                'parents': [folder_id]
+                                'parents': ["1ykJICR5NM_5ntOUli0mdIyZJnyhMjUV8"]
                             }
 
                             media = MediaIoBaseUpload(io.BytesIO(imagen.getvalue()), mimetype=imagen.type)
@@ -516,9 +522,10 @@ elif page == "Productos":
                             ).execute()
 
                             imagen_url = f"https://drive.google.com/uc?id={file.get('id')}"
-                            st.success("✅ Foto subida correctamente")
+                            st.success("✅ Foto subida")
                         except Exception as e:
-                            st.error(f"Error al subir foto: {e}")
+                            st.warning(f"⚠️ No se pudo subir la foto automáticamente: {str(e)[:80]}...")
+                            imagen_url = ""
 
                     ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock","imagen_url"])
                     
