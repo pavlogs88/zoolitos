@@ -555,8 +555,12 @@ elif page == "Productos":
                 st.session_state["edit_producto"] = None
                 st.rerun()
 
-    st.markdown("---")
-    
+        st.markdown("---")
+
+    # ── Toggle de vista ───────────────────────────────────────────────────────
+    view_mode = st.radio("Modo de visualización", ["Cards", "Tabla"], 
+                        horizontal=True, label_visibility="collapsed")
+
     # ── Filtros ───────────────────────────────────────────────────────────────
     col_b, col_c, col_s = st.columns(3)
     with col_b: buscar = st.text_input("🔍 Buscar", placeholder="Nombre, categoría...")
@@ -575,53 +579,87 @@ elif page == "Productos":
     elif stock_fil == "Stock bajo (≤3)": df = df[df["stock"] <= 3]
     elif stock_fil == "Sin stock (0)":   df = df[df["stock"] == 0]
 
-    st.caption(f"{len(df)} productos")
+    st.caption(f"{len(df)} productos encontrados")
 
     if len(df) == 0:
         st.info("No hay productos con esos filtros.")
     else:
-        for _, pr in df.iterrows():
-            stock_val = int(pr["stock"])
-            if stock_val == 0:   stock_tag = f'<span class="tag-rojo">Sin stock</span>'
-            elif stock_val <= 3: stock_tag = f'<span class="tag-amber">Stock bajo: {stock_val}</span>'
-            else:                stock_tag = f'<span class="tag-verde">Stock: {stock_val}</span>'
+        if view_mode == "Cards":
+            # ===================== VISTA CARDS =====================
+            for _, pr in df.iterrows():
+                stock_val = int(pr["stock"])
+                if stock_val == 0:   
+                    stock_tag = f'<span class="tag-rojo">Sin stock</span>'
+                elif stock_val <= 3: 
+                    stock_tag = f'<span class="tag-amber">Stock bajo: {stock_val}</span>'
+                else:                
+                    stock_tag = f'<span class="tag-verde">Stock: {stock_val}</span>'
 
-            col_info, col_acc = st.columns([5, 1])
-            with col_info:
-                st.markdown(f"""
-                <div class="card">
-                  <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div>
-                      <div style="font-family:'Syne',sans-serif;font-weight:700">{pr['nombre']}</div>
-                      <div style="color:#888;font-size:13px;margin-top:3px">
-                        {pr['descripcion']}
-                        {(' · ' + pr['categoria']) if pr['categoria'] else ''}
-                        {(' · Talla ' + pr['talla']) if pr['talla'] else ''}
-                        {(' · ' + pr['color']) if pr['color'] else ''}
+                col_info, col_acc = st.columns([5, 1])
+                with col_info:
+                    st.markdown(f"""
+                    <div class="card">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                          <div style="font-family:'Syne',sans-serif;font-weight:700">{pr['nombre']}</div>
+                          <div style="color:#888;font-size:13px;margin-top:3px">
+                            {pr['descripcion'] or ''}
+                            {(' · ' + pr['categoria']) if pr['categoria'] else ''}
+                            {(' · Talla ' + pr['talla']) if pr['talla'] else ''}
+                            {(' · ' + pr['color']) if pr['color'] else ''}
+                          </div>
+                        </div>
+                        <div style="text-align:right">
+                          <div style="font-size:12px;color:#888">Costo</div>
+                          <div style="font-family:'Syne',sans-serif;color:#e8ff8b;font-weight:700">{fmt(pr['precio_costo'])}</div>
+                        </div>
                       </div>
                     </div>
-                    <div style="text-align:right">
-                      <div style="font-size:12px;color:#888">Costo</div>
-                      <div style="font-family:'Syne',sans-serif;color:#e8ff8b;font-weight:700">{fmt(pr['precio_costo'])}</div>
-                    </div>
-                  </div>
-                  <div style="margin-top:8px">{stock_tag}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with col_acc:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("✏️", key=f"edit_pr_{pr['id']}"):
-                    st.session_state["edit_producto"] = pr.to_dict()
-                    st.rerun()
-                if st.button("🗑️", key=f"del_pr_{pr['id']}"):
-                    ws = get_ws("Productos", [])
-                    rows = ws.get_all_values()
-                    for i, row in enumerate(rows[1:], start=2):
-                        if row[0] == pr["id"]:
-                            ws.delete_rows(i)
-                            break
-                    clear_cache()
-                    st.rerun()
+                    """, unsafe_allow_html=True)
+
+                    # Mostrar imagen
+                    if pr.get('imagen_url') and str(pr['imagen_url']).strip():
+                        try:
+                            st.image(pr['imagen_url'], width=280)
+                        except:
+                            st.caption("📷 No se pudo cargar la imagen")
+
+                    st.markdown(f"""
+                    <div style="margin-top:8px">{stock_tag}</div>
+                    """, unsafe_allow_html=True)
+
+                with col_acc:
+                    st.markdown("<br><br><br>", unsafe_allow_html=True)
+                    if st.button("✏️", key=f"edit_pr_{pr['id']}"):
+                        st.session_state["edit_producto"] = pr.to_dict()
+                        st.rerun()
+                    if st.button("🗑️", key=f"del_pr_{pr['id']}"):
+                        ws = get_ws("Productos", [])
+                        rows = ws.get_all_values()
+                        for i, row in enumerate(rows[1:], start=2):
+                            if row[0] == pr["id"]:
+                                ws.delete_rows(i)
+                                break
+                        clear_cache()
+                        st.rerun()
+
+        else:
+            # ===================== VISTA TABLA =====================
+            # Seleccionar columnas a mostrar
+            columnas_mostrar = ["nombre", "descripcion", "categoria", "talla", "color", 
+                              "precio_costo", "stock", "imagen_url"]
+            
+            tabla = df[columnas_mostrar].copy()
+            tabla["precio_costo"] = tabla["precio_costo"].apply(fmt)
+            
+            st.dataframe(
+                tabla,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "imagen_url": st.column_config.LinkColumn("Imagen", display_text="Ver foto")
+                }
+            )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # VENTAS
