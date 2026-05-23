@@ -617,31 +617,24 @@ elif page == "Productos":
                     </div>
                     """, unsafe_allow_html=True)
 
-# Mostrar imagen (versión mejorada y robusta)
+                # Mostrar imagen - Versión final
                 if pr.get('imagen_url') and str(pr['imagen_url']).strip() != "":
                     url = str(pr['imagen_url']).strip()
                     
-                    # Convertir cualquier link de Google Drive al formato directo
-                    if "drive.google.com/file/d/" in url:
-                        try:
-                            # Extraer el ID del archivo
-                            file_id = url.split("/file/d/")[1].split("/")[0]
-                            url = f"https://drive.google.com/uc?id={file_id}"
-                        except:
-                            pass
-                    elif "uc?id=" not in url and "open?id=" in url:
-                        try:
-                            file_id = url.split("open?id=")[1].split("&")[0]
-                            url = f"https://drive.google.com/uc?id={file_id}"
-                        except:
-                            pass
+                    # Convertir a formato directo de Google Drive
+                    if "/file/d/" in url:
+                        file_id = url.split("/file/d/")[1].split("/")[0]
+                        url = f"https://drive.google.com/uc?id={file_id}"
+                    elif "open?id=" in url:
+                        file_id = url.split("open?id=")[1].split("&")[0]
+                        url = f"https://drive.google.com/uc?id={file_id}"
                     st.caption(f"Link usado: {url}")
                     try:
-                        st.image(url, width=300)
+                        st.image(url, width=350)
                         st.caption("📷 Foto del producto")
-                    except Exception as e:
+                    except:
                         st.warning("⚠️ No se pudo cargar la imagen")
-                        st.caption(f"[Abrir foto en Drive]({url})")
+                        st.markdown(f"[🔗 Ver foto en Drive]({url})", unsafe_allow_html=True)
                 else:
                     st.caption("📷 Sin foto")
 
