@@ -114,24 +114,24 @@ def get_drive_service():
 import requests
 
 def upload_to_imgbb(image_file):
-    """Sube una imagen a ImgBB y devuelve el link directo"""
+    """Sube una imagen a ImgBB usando tu clave personal"""
     try:
         url = "https://api.imgbb.com/1/upload"
         files = {"image": image_file.getvalue()}
         
-        # API Key pública de ImgBB (funciona para uso básico)
-        params = {"key": "7a4c2b8e1f9d4c6a8b2e5f1a3c7d9e4b"}  
+        # Tu clave personal
+        params = {"key": "2728d3e1c0831a9ca801598c47c32eba"}
         
-        response = requests.post(url, files=files, params=params, timeout=15)
+        response = requests.post(url, files=files, params=params, timeout=20)
         
         if response.status_code == 200:
             data = response.json()
-            return data['data']['url']  # Link directo
+            return data['data']['url']   # Link directo
         else:
-            st.error(f"Error ImgBB: {response.text}")
+            st.error(f"Error ImgBB: {response.json()}")
             return None
     except Exception as e:
-        st.error(f"Error subiendo a ImgBB: {e}")
+        st.error(f"Error al subir foto: {e}")
         return None
 
 def get_wb():
