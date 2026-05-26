@@ -585,14 +585,18 @@ elif page == "Productos":
     else:
         if view_mode == "Cards":
             # ===================== VISTA CARDS =====================
-            for _, pr in df.iterrows():
+                        for _, pr in df.iterrows():
                 stock_val = int(pr["stock"])
-                if stock_val == 0:   
-                    stock_tag = f'<span class="tag-rojo">Sin stock</span>'
-                elif stock_val <= 3: 
-                    stock_tag = f'<span class="tag-amber">Stock bajo: {stock_val}</span>'
-                else:                
-                    stock_tag = f'<span class="tag-verde">Stock: {stock_val}</span>'
+                
+                # Definir tag de stock solo si NO tiene foto
+                stock_tag = ""
+                if not pr.get('imagen_url') or not str(pr['imagen_url']).strip():
+                    if stock_val == 0:   
+                        stock_tag = f'<span class="tag-rojo">Sin stock</span>'
+                    elif stock_val <= 3: 
+                        stock_tag = f'<span class="tag-amber">Stock bajo: {stock_val}</span>'
+                    else:                
+                        stock_tag = f'<span class="tag-verde">Stock: {stock_val}</span>'
 
                 col_info, col_acc = st.columns([5, 1])
                 with col_info:
@@ -616,33 +620,30 @@ elif page == "Productos":
                     </div>
                     """, unsafe_allow_html=True)
 
-                # Mostrar imagen - Versión final
-                if pr.get('imagen_url') and str(pr['imagen_url']).strip() != "":
-                    url = str(pr['imagen_url']).strip()
-                    
-                    # Convertir a formato directo de Google Drive
-                    if "/file/d/" in url:
-                        file_id = url.split("/file/d/")[1].split("/")[0]
-                        url = f"https://drive.google.com/uc?id={file_id}"
-                    elif "open?id=" in url:
-                        file_id = url.split("open?id=")[1].split("&")[0]
-                        url = f"https://drive.google.com/uc?id={file_id}"
-                    st.caption(f"Link usado: {url}")
-                    try:
-                        st.image(url, width=350)
-                        st.caption("📷 Foto del producto")
-                    except:
-                        st.warning("⚠️ No se pudo cargar la imagen")
-                        st.markdown(f"[🔗 Ver foto en Drive]({url})", unsafe_allow_html=True)
-                else:
-                    st.caption("📷 Sin foto")
+                    # Mostrar imagen más chica
+                    if pr.get('imagen_url') and str(pr['imagen_url']).strip() != "":
+                        url = str(pr['imagen_url']).strip()
+                        if "/file/d/" in url:
+                            try:
+                                file_id = url.split("/file/d/")[1].split("/")[0]
+                                url = f"https://drive.google.com/uc?id={file_id}"
+                            except:
+                                pass
+                        try:
+                            st.image(url, width=220)
+                        except:
+                            st.caption("📷 No se pudo cargar la imagen")
+                    else:
+                        st.caption("📷 Sin foto")
 
-                    st.markdown(f"""
-                    <div style="margin-top:8px">{stock_tag}</div>
-                    """, unsafe_allow_html=True)
+                    # Mostrar stock solo si NO hay foto
+                    if stock_tag:
+                        st.markdown(f"""
+                        <div style="margin-top:8px">{stock_tag}</div>
+                        """, unsafe_allow_html=True)
 
                 with col_acc:
-                    st.markdown("<br><br><br>", unsafe_allow_html=True)
+                    st.markdown("<br><br>", unsafe_allow_html=True)
                     if st.button("✏️", key=f"edit_pr_{pr['id']}"):
                         st.session_state["edit_producto"] = pr.to_dict()
                         st.rerun()
