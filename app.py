@@ -585,7 +585,7 @@ elif page == "Productos":
     else:
         if view_mode == "Cards":
             # ===================== VISTA CARDS =====================
-                        for _, pr in df.iterrows():
+              for _, pr in df.iterrows():
                 stock_val = int(pr["stock"])
                 
                 # Definir tag de stock solo si NO tiene foto
