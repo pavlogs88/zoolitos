@@ -757,7 +757,7 @@ elif page == "Ventas":
                         rows_p = ws_p.get_all_values()
                         for i, row in enumerate(rows_p[1:], start=2):
                             if row[0] == pr_row["id"]:
-                                ws_p.update_cell(i, 9, stock_actual - cantidad)  # columna stock
+                                ws_p.update_cell(i, 9, stock_actual - cantidad)
                                 break
                         
                         clear_cache()
@@ -766,7 +766,10 @@ elif page == "Ventas":
 
     st.markdown("---")
 
-    # ── Filtros y tabla ─────────────────────────────────────────────────────
+    # Toggle de vista
+    view_mode_ventas = toggle_view_mode("Ventas")
+
+    # ── Filtros ───────────────────────────────────────────────────────────────
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
     with col_f1:
         clientes_fil = ["Todos"] + sorted(ventas_df["cliente_nombre"].unique().tolist()) if len(ventas_df) > 0 else ["Todos"]
@@ -800,41 +803,54 @@ elif page == "Ventas":
     if len(df) == 0:
         st.info("No hay ventas con esos filtros.")
     else:
-        for _, v in df.sort_values("fecha", ascending=False).iterrows():
-            pagado_tag = '<span class="tag-verde">Pagado</span>' if v["pagado"].upper() == "SI" else '<span class="tag-rojo">Pendiente</span>'
-            col_info, col_acc = st.columns([5, 1])
-            with col_info:
-                st.markdown(f"""
-                <div class="card">
-                  <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div>
-                      <div style="font-family:'Syne',sans-serif;font-weight:700">{v['cliente_nombre']}</div>
-                      <div style="color:#888;font-size:13px;margin-top:2px">{v['producto_nombre']} · {int(float(v['cantidad']))} u · {fmt(v['precio_venta'])} c/u</div>
+        if view_mode_ventas == "Cards":
+            # ===================== VISTA CARDS =====================
+            for _, v in df.sort_values("fecha", ascending=False).iterrows():
+                pagado_tag = '<span class="tag-verde">Pagado</span>' if v["pagado"].upper() == "SI" else '<span class="tag-rojo">Pendiente</span>'
+                
+                col_info, col_acc = st.columns([5, 1])
+                with col_info:
+                    st.markdown(f"""
+                    <div class="card">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                          <div style="font-family:'Syne',sans-serif;font-weight:700">{v['cliente_nombre']}</div>
+                          <div style="color:#888;font-size:13px;margin-top:2px">{v['producto_nombre']} · {int(float(v['cantidad']))} u · {fmt(v['precio_venta'])} c/u</div>
+                        </div>
+                        <div style="text-align:right">
+                          <div style="font-family:'Syne',sans-serif;color:#e8ff8b;font-weight:700;font-size:1.1rem">{fmt(v['total'])}</div>
+                          <div style="font-size:12px;color:#888">{v['fecha']}</div>
+                        </div>
+                      </div>
+                      <div style="margin-top:8px">{pagado_tag}</div>
                     </div>
-                    <div style="text-align:right">
-                      <div style="font-family:'Syne',sans-serif;color:#e8ff8b;font-weight:700;font-size:1.1rem">{fmt(v['total'])}</div>
-                      <div style="font-size:12px;color:#888">{v['fecha']}</div>
-                    </div>
-                  </div>
-                  <div style="margin-top:8px">{pagado_tag}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with col_acc:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if v["pagado"].upper() != "SI":
-                    if st.button("✓", key=f"pag_{v['id']}", help="Marcar pagado"):
-                        ws = get_ws("Ventas", [])
-                        rows = ws.get_all_values()
-                        for i, row in enumerate(rows[1:], start=2):
-                            if row[0] == v["id"]:
-                                ws.update_cell(i, 10, "SI")   # columna pagado
-                                break
+                    """, unsafe_allow_html=True)
+                with col_acc:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if v["pagado"].upper() != "SI":
+                        if st.button("✓", key=f"pag_{v['id']}", help="Marcar pagado"):
+                            ws = get_ws("Ventas", [])
+                            rows = ws.get_all_values()
+                            for i, row in enumerate(rows[1:], start=2):
+                                if row[0] == v["id"]:
+                                    ws.update_cell(i, 10, "SI")
+                                    break
+                            clear_cache()
+                            st.rerun()
+                    if st.button("🗑️", key=f"del_v_{v['id']}", help="Eliminar"):
                         clear_cache()
                         st.rerun()
-                if st.button("🗑️", key=f"del_v_{v['id']}", help="Eliminar"):
-                    # ... (código de eliminar, lo dejo igual por ahora)
-                    clear_cache()
-                    st.rerun()
+        else:
+            # ===================== VISTA TABLA =====================
+            st.dataframe(
+                df[["fecha", "cliente_nombre", "producto_nombre", "cantidad", "precio_venta", "total", "pagado"]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "total": st.column_config.NumberColumn(format="$%.2f"),
+                    "precio_venta": st.column_config.NumberColumn(format="$%.2f")
+                }
+            )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # COBROS
