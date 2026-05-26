@@ -111,6 +111,28 @@ def get_drive_service():
     scopes = ["https://www.googleapis.com/auth/drive"]
     credentials = Credentials.from_service_account_info(creds, scopes=scopes)
     return build('drive', 'v3', credentials=credentials)
+import requests
+
+def upload_to_imgbb(image_file):
+    """Sube una imagen a ImgBB y devuelve el link directo"""
+    try:
+        url = "https://api.imgbb.com/1/upload"
+        files = {"image": image_file.getvalue()}
+        
+        # API Key pública de ImgBB (funciona para uso básico)
+        params = {"key": "7a4c2b8e1f9d4c6a8b2e5f1a3c7d9e4b"}  
+        
+        response = requests.post(url, files=files, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data['data']['url']  # Link directo
+        else:
+            st.error(f"Error ImgBB: {response.text}")
+            return None
+    except Exception as e:
+        st.error(f"Error subiendo a ImgBB: {e}")
+        return None
 
 def get_wb():
     return get_gc().open_by_key(st.secrets["SHEET_ID"])
@@ -482,14 +504,9 @@ elif page == "Productos":
                                              value=int(edit.get("stock", 0)) if edit else 0, step=1)
 
             # ← NUEVO: Subida de foto
+                        # 📸 Foto del producto
             st.markdown("**📸 Foto del producto**")
-            imagen = st.file_uploader("Seleccionar foto (opcional)", type=["jpg", "jpeg", "png"], key="foto_prod")
-            
-            # Link manual (por si querés ponerlo a mano)
-            imagen_url_manual = st.text_input("O pega aquí el link de la imagen (Google Drive)", 
-                                            value=edit.get("imagen_url", "") if edit else "")
-
-          
+            imagen = st.file_uploader("Seleccionar o tomar foto", type=["jpg", "jpeg", "png"], key="foto_prod")
 
             submitted = st.form_submit_button("Guardar producto", type="primary")
 
@@ -497,35 +514,17 @@ elif page == "Productos":
                 if not nombre.strip():
                     st.error("El nombre es obligatorio.")
                 else:
-                    #imagen_url = edit.get("imagen_url", "") if edit else ""
-                    
-                    # Subir foto a Drive si se seleccionó una
-                    imagen_url = imagen_url_manual  # por defecto usa el link manual
+                    imagen_url = edit.get("imagen_url", "") if edit else ""
 
-                    # Solo intenta subir si hay foto y no hay link manual
-                    if imagen is not None and not imagen_url_manual.strip():
-                        try:
-                            drive_service = get_drive_service()
-                            file_name = f"{nombre.strip().replace(' ', '_')}_{new_id()}.jpg"
-                            
-                            file_metadata = {
-                                'name': file_name,
-                                'parents': ["1ykJICR5NM_5ntOUli0mdIyZJnyhMjUV8"]
-                            }
-
-                            media = MediaIoBaseUpload(io.BytesIO(imagen.getvalue()), mimetype=imagen.type)
-                            
-                            file = drive_service.files().create(
-                                body=file_metadata,
-                                media_body=media,
-                                fields='id'
-                            ).execute()
-
-                            imagen_url = f"https://drive.google.com/uc?id={file.get('id')}"
-                            st.success("✅ Foto subida")
-                        except Exception as e:
-                            st.warning(f"⚠️ No se pudo subir la foto automáticamente: {str(e)[:80]}...")
-                            imagen_url = ""
+                    # Subir foto a ImgBB
+                    if imagen is not None:
+                        with st.spinner("Subiendo foto..."):
+                            imagen_url = upload_to_imgbb(imagen)
+                            if imagen_url:
+                                st.success("✅ Foto subida correctamente")
+                            else:
+                                st.error("No se pudo subir la foto")
+                                imagen_url = ""
 
                     ws = get_ws("Productos", ["id","nombre","descripcion","categoria","talla","color","precio_costo","fecha_inicio_venta","stock","imagen_url"])
                     
