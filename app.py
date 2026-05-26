@@ -585,18 +585,16 @@ elif page == "Productos":
     else:
         if view_mode == "Cards":
             # ===================== VISTA CARDS =====================
-              for _, pr in df.iterrows():
-                stock_val = int(pr["stock"])
+            for _, pr in df.iterrows():
+                stock_val = int(pr.get("stock", 0))
                 
-                # Definir tag de stock solo si NO tiene foto
-                stock_tag = ""
-                if not pr.get('imagen_url') or not str(pr['imagen_url']).strip():
-                    if stock_val == 0:   
-                        stock_tag = f'<span class="tag-rojo">Sin stock</span>'
-                    elif stock_val <= 3: 
-                        stock_tag = f'<span class="tag-amber">Stock bajo: {stock_val}</span>'
-                    else:                
-                        stock_tag = f'<span class="tag-verde">Stock: {stock_val}</span>'
+                # Tag de stock (siempre visible)
+                if stock_val == 0:   
+                    stock_tag = f'<span class="tag-rojo">Sin stock</span>'
+                elif stock_val <= 3: 
+                    stock_tag = f'<span class="tag-amber">Stock bajo: {stock_val}</span>'
+                else:                
+                    stock_tag = f'<span class="tag-verde">Stock: {stock_val}</span>'
 
                 col_info, col_acc = st.columns([5, 1])
                 with col_info:
@@ -606,10 +604,10 @@ elif page == "Productos":
                         <div>
                           <div style="font-family:'Syne',sans-serif;font-weight:700">{pr['nombre']}</div>
                           <div style="color:#888;font-size:13px;margin-top:3px">
-                            {pr['descripcion'] or ''}
-                            {(' · ' + pr['categoria']) if pr['categoria'] else ''}
-                            {(' · Talla ' + pr['talla']) if pr['talla'] else ''}
-                            {(' · ' + pr['color']) if pr['color'] else ''}
+                            {pr.get('descripcion', '') or ''}
+                            {(' · ' + pr['categoria']) if pr.get('categoria') else ''}
+                            {(' · Talla ' + pr['talla']) if pr.get('talla') else ''}
+                            {(' · ' + pr['color']) if pr.get('color') else ''}
                           </div>
                         </div>
                         <div style="text-align:right">
@@ -620,7 +618,7 @@ elif page == "Productos":
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # Mostrar imagen más chica
+                    # Mostrar imagen
                     if pr.get('imagen_url') and str(pr['imagen_url']).strip() != "":
                         url = str(pr['imagen_url']).strip()
                         if "/file/d/" in url:
@@ -636,11 +634,10 @@ elif page == "Productos":
                     else:
                         st.caption("📷 Sin foto")
 
-                    # Mostrar stock solo si NO hay foto
-                    if stock_tag:
-                        st.markdown(f"""
-                        <div style="margin-top:8px">{stock_tag}</div>
-                        """, unsafe_allow_html=True)
+                    # Stock tag (siempre visible)
+                    st.markdown(f"""
+                    <div style="margin-top:8px">{stock_tag}</div>
+                    """, unsafe_allow_html=True)
 
                 with col_acc:
                     st.markdown("<br><br>", unsafe_allow_html=True)
